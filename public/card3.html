@@ -19,8 +19,8 @@
       <p class="text-red-700" x-text="error"></p>
     </div>
 
-    <!-- Summary Stats -->
-    <div x-show="!loading && !error" x-cloak class="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+    <!-- Summary Stats Row 1 -->
+    <div x-show="!loading && !error" x-cloak class="mb-4 grid grid-cols-2 md:grid-cols-5 gap-4">
       <div class="bg-white rounded-lg shadow p-4">
         <div class="text-sm text-gray-500">Total Reporters</div>
         <div class="text-2xl font-bold text-gray-800" x-text="users.length"></div>
@@ -43,6 +43,30 @@
       </div>
     </div>
 
+    <!-- Summary Stats Row 2 - Last 5 Days -->
+    <div x-show="!loading && !error" x-cloak class="mb-6 grid grid-cols-5 gap-4">
+      <div class="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
+        <div class="text-sm text-orange-700" x-text="getDayLabel(1)"></div>
+        <div class="text-2xl font-bold text-orange-600" x-text="totalDay1"></div>
+      </div>
+      <div class="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
+        <div class="text-sm text-orange-700" x-text="getDayLabel(2)"></div>
+        <div class="text-2xl font-bold text-orange-600" x-text="totalDay2"></div>
+      </div>
+      <div class="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
+        <div class="text-sm text-orange-700" x-text="getDayLabel(3)"></div>
+        <div class="text-2xl font-bold text-orange-600" x-text="totalDay3"></div>
+      </div>
+      <div class="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
+        <div class="text-sm text-orange-700" x-text="getDayLabel(4)"></div>
+        <div class="text-2xl font-bold text-orange-600" x-text="totalDay4"></div>
+      </div>
+      <div class="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
+        <div class="text-sm text-orange-700" x-text="getDayLabel(5)"></div>
+        <div class="text-2xl font-bold text-orange-600" x-text="totalDay5"></div>
+      </div>
+    </div>
+
     <!-- Users Grid -->
     <div x-show="!loading && !error" x-cloak class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <template x-for="user in users" :key="user.user">
@@ -61,7 +85,7 @@
             <div class="text-2xl font-bold text-blue-600" x-text="user.total"></div>
           </div>
 
-          <!-- Stats -->
+          <!-- Status Stats -->
           <div class="grid grid-cols-4 gap-2 pt-3 border-t border-gray-100">
             <div class="text-center">
               <div class="text-lg font-bold text-blue-600" x-text="user.total"></div>
@@ -78,6 +102,30 @@
             <div class="text-center">
               <div class="text-lg font-bold text-purple-600" x-text="user.working_count"></div>
               <div class="text-xs text-gray-500">Working</div>
+            </div>
+          </div>
+
+          <!-- Last 5 Days -->
+          <div class="grid grid-cols-5 gap-1 pt-3 mt-3 border-t border-gray-100">
+            <div class="text-center">
+              <div class="text-sm font-bold text-orange-600" x-text="user.day1_count"></div>
+              <div class="text-xs text-gray-400" x-text="getShortDay(1)"></div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm font-bold text-orange-600" x-text="user.day2_count"></div>
+              <div class="text-xs text-gray-400" x-text="getShortDay(2)"></div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm font-bold text-orange-600" x-text="user.day3_count"></div>
+              <div class="text-xs text-gray-400" x-text="getShortDay(3)"></div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm font-bold text-orange-600" x-text="user.day4_count"></div>
+              <div class="text-xs text-gray-400" x-text="getShortDay(4)"></div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm font-bold text-orange-600" x-text="user.day5_count"></div>
+              <div class="text-xs text-gray-400" x-text="getShortDay(5)"></div>
             </div>
           </div>
 
@@ -133,8 +181,40 @@
           return this.users.reduce((sum, u) => sum + parseInt(u.working_count || 0), 0);
         },
 
+        get totalDay1() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.day1_count || 0), 0);
+        },
+
+        get totalDay2() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.day2_count || 0), 0);
+        },
+
+        get totalDay3() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.day3_count || 0), 0);
+        },
+
+        get totalDay4() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.day4_count || 0), 0);
+        },
+
+        get totalDay5() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.day5_count || 0), 0);
+        },
+
         getToken() {
           return parent.localStorage.getItem('authToken') || localStorage.getItem('authToken');
+        },
+
+        getDayLabel(daysAgo) {
+          const date = new Date();
+          date.setDate(date.getDate() - daysAgo);
+          return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        },
+
+        getShortDay(daysAgo) {
+          const date = new Date();
+          date.setDate(date.getDate() - daysAgo);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         },
 
         getInitials(name) {

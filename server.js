@@ -174,6 +174,11 @@ app.get('/api/bug-users', verifyToken, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'done') AS done_count,
         COUNT(*) FILTER (WHERE status = 'pending') AS pending_count,
         COUNT(*) FILTER (WHERE status = 'working') AS working_count,
+        COUNT(*) FILTER (WHERE updated_at::date = CURRENT_DATE - INTERVAL '1 day') AS day1_count,
+        COUNT(*) FILTER (WHERE updated_at::date = CURRENT_DATE - INTERVAL '2 days') AS day2_count,
+        COUNT(*) FILTER (WHERE updated_at::date = CURRENT_DATE - INTERVAL '3 days') AS day3_count,
+        COUNT(*) FILTER (WHERE updated_at::date = CURRENT_DATE - INTERVAL '4 days') AS day4_count,
+        COUNT(*) FILTER (WHERE updated_at::date = CURRENT_DATE - INTERVAL '5 days') AS day5_count,
         MAX(created_at) AS last_report
       FROM bugs
       GROUP BY "user"
