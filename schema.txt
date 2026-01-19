@@ -1,0 +1,388 @@
+-- =============================================================
+-- BLIMTO PostgreSQL Schema
+-- Migrated from SQLite (Cloudflare D1)
+-- Validation handled in application code (no CHECK constraints)
+-- =============================================================
+
+-- Enable required extensions (gen_random_uuid() is built-in since PostgreSQL 13)
+-- uuid-ossp kept for compatibility but not required
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- =============================================================
+-- TOPIC CATEGORIES TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS topic_categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE topic_categories IS 'Categories for grouping topics';
+
+-- =============================================================
+-- TOPICS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS topics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    topic TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    short_description TEXT NOT NULL,
+    bg_color TEXT,
+    logo_url TEXT,
+    first_concept_id UUID,
+    first_concept_slug TEXT,
+    category_id UUID REFERENCES topic_categories(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    concepts_count INTEGER NOT NULL DEFAULT 0,
+    new_concepts_count INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    toc TEXT,
+    seo_data JSONB,
+    toc_status TEXT NOT NULL DEFAULT 'not_started',
+    json_status TEXT NOT NULL DEFAULT 'not_started',
+    seo_status TEXT NOT NULL DEFAULT 'not_started',
+    preview_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE topics IS 'Learning topics (e.g., JavaScript, Python, SQL)';
+COMMENT ON COLUMN topics.topic IS 'URL-safe slug for the topic';
+COMMENT ON COLUMN topics.seo_data IS 'SEO metadata stored as JSONB';
+
+-- =============================================================
+-- CONCEPTS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS concepts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    bg_color TEXT,
+    short_description TEXT,
+    topic_id UUID REFERENCES topics(id) ON DELETE SET NULL,
+    tags TEXT,
+    search_keywords TEXT,
+    seo_data JSONB,
+    seo_status TEXT NOT NULL DEFAULT 'not_started',
+    group_title TEXT,
+    topics_covered TEXT,
+    markdown TEXT,
+    markdown_preview TEXT,
+    markdown_status TEXT NOT NULL DEFAULT 'not_started',
+    html TEXT,
+    html_preview TEXT,
+    html_status TEXT NOT NULL DEFAULT 'not_started',
+    cheatsheet_image TEXT,
+    cheatsheet_preview TEXT,
+    cheatsheet_status TEXT NOT NULL DEFAULT 'not_started',
+    puzzle TEXT,
+    puzzle_preview TEXT,
+    puzzle_status TEXT NOT NULL DEFAULT 'not_started',
+    flashcard TEXT,
+    flashcard_preview TEXT,
+    flashcard_status TEXT NOT NULL DEFAULT 'not_started',
+    is_free BOOLEAN NOT NULL DEFAULT FALSE,
+    is_new BOOLEAN NOT NULL DEFAULT FALSE,
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT NOT NULL DEFAULT 'inactive',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    claude_model TEXT,
+    is_interactive_updated BOOLEAN NOT NULL DEFAULT FALSE,
+    is_interactive_tested BOOLEAN NOT NULL DEFAULT FALSE,
+    is_interactive_test_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    are_previews_regenerated BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE concepts IS 'Individual learning concepts/lessons within topics';
+COMMENT ON COLUMN concepts.slug IS 'URL-safe unique identifier';
+COMMENT ON COLUMN concepts.is_free IS 'TRUE if concept is free without subscription';
+
+-- =============================================================
+-- CONCEPT VERSIONS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS concept_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
+    type TEXT NOT NULL DEFAULT 'html',
+    html TEXT,
+    status TEXT NOT NULL DEFAULT 'inactive',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE concept_versions IS 'Version history for concept content';
+
+-- =============================================================
+-- CONCEPT COMMENTS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS concept_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE concept_comments IS 'Admin comments on concepts';
+
+-- =============================================================
+-- USERS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL UNIQUE,
+    name TEXT,
+    provider TEXT NOT NULL DEFAULT 'otp',
+    provider_user_id TEXT,
+    stripe_customer_id TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ip_address TEXT,
+    device_details TEXT,
+    platform TEXT,
+    ip_details JSONB,
+    internal_user BOOLEAN NOT NULL DEFAULT FALSE,
+    subscription_status TEXT,
+    subscription_id TEXT,
+    subscription_start_date TIMESTAMPTZ,
+    subscription_end_date TIMESTAMPTZ,
+    subscription_cancels_at TIMESTAMPTZ,
+    subscription_price_id TEXT,
+    subscription_platform TEXT,
+    token_version INTEGER NOT NULL DEFAULT 0
+);
+
+COMMENT ON TABLE users IS 'User accounts and subscription information';
+COMMENT ON COLUMN users.token_version IS 'Incremented to invalidate all JWT tokens';
+
+-- =============================================================
+-- OTP REQUESTS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS otp_requests (
+    email TEXT PRIMARY KEY,
+    otp_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE otp_requests IS 'Pending OTP verification requests';
+
+-- =============================================================
+-- USER LOGS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS user_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_type TEXT,
+    provider TEXT,
+    ip_address TEXT,
+    device_details JSONB,
+    details JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE user_logs IS 'User activity audit log for security';
+
+-- =============================================================
+-- USER CONCEPT PROGRESS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS user_concept_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    concept_id UUID NOT NULL REFERENCES concepts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, concept_id)
+);
+
+COMMENT ON TABLE user_concept_progress IS 'Tracks which concepts a user has completed';
+
+-- =============================================================
+-- CONTACT TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS contact (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT,
+    email TEXT,
+    mobile TEXT,
+    message TEXT,
+    ip_address TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE contact IS 'Contact form submissions';
+
+-- =============================================================
+-- FAQ TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS faq (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sort_order INTEGER NOT NULL,
+    question TEXT,
+    answer TEXT
+);
+
+COMMENT ON TABLE faq IS 'Frequently asked questions';
+
+-- =============================================================
+-- ANNOUNCEMENTS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS announcements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type TEXT NOT NULL DEFAULT 'info',
+    message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE announcements IS 'App-wide announcements displayed to users';
+
+-- =============================================================
+-- FEEDBACK TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    topic_id UUID NOT NULL,
+    concept_id UUID NOT NULL,
+    type TEXT,
+    message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE feedback IS 'User feedback on concepts';
+
+-- =============================================================
+-- PAYMENT TRANSACTIONS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS payment_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    transaction_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    platform TEXT,
+    amount NUMERIC(10, 2) NOT NULL,
+    currency_code TEXT,
+    status TEXT NOT NULL,
+    error_code TEXT,
+    error_message TEXT,
+    subscription_price_id TEXT,
+    transaction_reason TEXT DEFAULT 'manual',
+    subscription_id TEXT,
+    invoice_id TEXT,
+    stripe_response_json JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE payment_transactions IS 'All payment and subscription transactions';
+COMMENT ON COLUMN payment_transactions.amount IS 'Transaction amount in smallest currency unit';
+
+-- =============================================================
+-- PAYMENT ERRORS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS payment_errors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID,
+    platform TEXT,
+    error_msg TEXT,
+    error_code TEXT,
+    error_context TEXT,
+    product_id TEXT,
+    purchase_token TEXT,
+    transaction_id TEXT,
+    ip_address TEXT,
+    device_details JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE payment_errors IS 'Payment processing error logs';
+
+-- =============================================================
+-- PROMPTS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS prompts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type TEXT,
+    prompt_url TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE prompts IS 'AI prompt templates for content generation';
+
+-- =============================================================
+-- BUGS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS bugs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "user" TEXT NOT NULL,
+    error_message TEXT NOT NULL,
+    concept_url TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    comments TEXT,
+    images TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE bugs IS 'Bug reports from users';
+
+-- =============================================================
+-- MARKETING MATERIALS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS marketing_materials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================
+-- MARKETING IMAGES TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS marketing_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    upload_user TEXT NOT NULL,
+    images TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================
+-- MARKETING VIDEOS TABLE
+-- =============================================================
+CREATE TABLE IF NOT EXISTS marketing_videos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    upload_user TEXT NOT NULL,
+    video_url TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- =============================================================
+-- TABLES NOT MIGRATED (Deleted per cleanup decision)
+-- =============================================================
+-- analytics        - Replaced by GA4 + PostHog
+-- user_tracking    - Replaced by GA4
+-- search_logs      - Low value, removed

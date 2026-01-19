@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Blimto Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-900 to-indigo-900 min-h-screen flex items-center justify-center">
+  <div x-data="loginForm()" x-init="checkExistingSession()" class="w-full max-w-md px-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8">
+      <!-- Logo/Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Blimto</h1>
+        <p class="text-gray-500 mt-2">Dashboard Login</p>
+      </div>
+
+      <!-- Login Form -->
+      <form @submit.prevent="login()">
+        <!-- Email -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <input
+            type="email"
+            x-model="email"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            placeholder="admin@blimto.com"
+            required
+          >
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+          <input
+            type="password"
+            x-model="password"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            placeholder="Enter your password"
+            required
+          >
+        </div>
+
+        <!-- Error Message -->
+        <div x-show="error" x-cloak class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-red-600 text-sm" x-text="error"></p>
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <span x-show="!loading">Sign In</span>
+          <span x-show="loading">Signing in...</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+
+  <script>
+    function loginForm() {
+      return {
+        email: '',
+        password: '',
+        error: null,
+        loading: false,
+
+        async checkExistingSession() {
+          const token = localStorage.getItem('authToken');
+          const expiresAt = localStorage.getItem('authExpiresAt');
+
+          if (token && expiresAt && Date.now() < parseInt(expiresAt)) {
+            // Verify token with server
+            try {
+              const response = await fetch('/api/verify-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token })
+              });
+              const data = await response.json();
+              if (data.valid) {
+                window.location.href = '/';
+                return;
+              }
+            } catch (err) {
+              // Token invalid, continue to login
+            }
+          }
+          // Clear invalid session data
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authExpiresAt');
+        },
+
+        async login() {
+          this.loading = true;
+          this.error = null;
+
+          try {
+            const response = await fetch('/api/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: this.email, password: this.password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              localStorage.setItem('authToken', data.token);
+              localStorage.setItem('authExpiresAt', data.expiresAt.toString());
+              window.location.href = '/';
+            } else {
+              this.error = data.error || 'Login failed';
+            }
+          } catch (err) {
+            this.error = 'Connection error. Please try again.';
+          } finally {
+            this.loading = false;
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>

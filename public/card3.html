@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Reporters</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-50">
+  <div x-data="bugUsers()" x-init="loadUsers()" class="p-6">
+    <!-- Loading State -->
+    <div x-show="loading" class="flex items-center justify-center py-12">
+      <div class="text-gray-500">Loading bug reporters...</div>
+    </div>
+
+    <!-- Error State -->
+    <div x-show="error" x-cloak class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+      <p class="text-red-700" x-text="error"></p>
+    </div>
+
+    <!-- Summary Stats -->
+    <div x-show="!loading && !error" x-cloak class="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Total Reporters</div>
+        <div class="text-2xl font-bold text-gray-800" x-text="users.length"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Total Bugs</div>
+        <div class="text-2xl font-bold text-blue-600" x-text="totalBugs"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Done</div>
+        <div class="text-2xl font-bold text-green-600" x-text="totalDone"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Pending</div>
+        <div class="text-2xl font-bold text-yellow-600" x-text="totalPending"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <div class="text-sm text-gray-500">Working</div>
+        <div class="text-2xl font-bold text-purple-600" x-text="totalWorking"></div>
+      </div>
+    </div>
+
+    <!-- Users Grid -->
+    <div x-show="!loading && !error" x-cloak class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <template x-for="user in users" :key="user.user">
+        <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4">
+          <!-- User Header -->
+          <div class="flex items-center gap-3 mb-3">
+            <div
+              class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+              :style="{ backgroundColor: getColor(user.user) }"
+              x-text="getInitials(user.user)"
+            ></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold text-gray-800 truncate" x-text="user.user"></h3>
+              <p class="text-xs text-gray-500">Last report: <span x-text="formatDate(user.last_report)"></span></p>
+            </div>
+            <div class="text-2xl font-bold text-blue-600" x-text="user.total"></div>
+          </div>
+
+          <!-- Stats -->
+          <div class="grid grid-cols-4 gap-2 pt-3 border-t border-gray-100">
+            <div class="text-center">
+              <div class="text-lg font-bold text-blue-600" x-text="user.total"></div>
+              <div class="text-xs text-gray-500">Total</div>
+            </div>
+            <div class="text-center">
+              <div class="text-lg font-bold text-green-600" x-text="user.done_count"></div>
+              <div class="text-xs text-gray-500">Done</div>
+            </div>
+            <div class="text-center">
+              <div class="text-lg font-bold text-yellow-600" x-text="user.pending_count"></div>
+              <div class="text-xs text-gray-500">Pending</div>
+            </div>
+            <div class="text-center">
+              <div class="text-lg font-bold text-purple-600" x-text="user.working_count"></div>
+              <div class="text-xs text-gray-500">Working</div>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden flex">
+            <div
+              class="bg-green-500 h-full"
+              :style="{ width: (user.done_count / user.total * 100) + '%' }"
+            ></div>
+            <div
+              class="bg-purple-500 h-full"
+              :style="{ width: (user.working_count / user.total * 100) + '%' }"
+            ></div>
+            <div
+              class="bg-yellow-500 h-full"
+              :style="{ width: (user.pending_count / user.total * 100) + '%' }"
+            ></div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="!loading && !error && users.length === 0" x-cloak class="text-center py-12 text-gray-500">
+      No bug reporters found.
+    </div>
+  </div>
+
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+
+  <script>
+    function bugUsers() {
+      return {
+        users: [],
+        loading: true,
+        error: null,
+
+        get totalBugs() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.total || 0), 0);
+        },
+
+        get totalDone() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.done_count || 0), 0);
+        },
+
+        get totalPending() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.pending_count || 0), 0);
+        },
+
+        get totalWorking() {
+          return this.users.reduce((sum, u) => sum + parseInt(u.working_count || 0), 0);
+        },
+
+        getToken() {
+          return parent.localStorage.getItem('authToken') || localStorage.getItem('authToken');
+        },
+
+        getInitials(name) {
+          if (!name) return '?';
+          const parts = name.trim().split(/[\s@]+/);
+          if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+          }
+          return name.substring(0, 2).toUpperCase();
+        },
+
+        getColor(name) {
+          const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6'];
+          let hash = 0;
+          for (let i = 0; i < (name || '').length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          return colors[Math.abs(hash) % colors.length];
+        },
+
+        formatDate(dateStr) {
+          if (!dateStr) return 'N/A';
+          const date = new Date(dateStr);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        },
+
+        async loadUsers() {
+          this.loading = true;
+          this.error = null;
+
+          try {
+            const response = await fetch('/api/bug-users', {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.getToken()}`
+              }
+            });
+
+            if (response.status === 401) {
+              parent.localStorage.removeItem('authToken');
+              parent.localStorage.removeItem('authExpiresAt');
+              parent.location.href = '/login';
+              return;
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+              this.users = data.users;
+            } else {
+              this.error = data.error;
+            }
+          } catch (err) {
+            this.error = 'Failed to load bug reporters: ' + err.message;
+          } finally {
+            this.loading = false;
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
